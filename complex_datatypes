@@ -1,0 +1,1077 @@
+		ARRAYS
+		------
+Array : Collection of Homogeneous items(purpose of each element is same),not collection of similar datatypes.
+
+name	qual	
+aaa	[btech,mtech]	
+bbb	[bsc,msc,mtech]
+
+select qula[0] from qualification;
+btech
+bsc
+select qual[2] from qualification;
+null
+mtech
+
+select name,size(qual) from qualification;
+
+aaa 2
+bbb 3
+
+select * from qualification where array_contains(qual,'mtech');
+
+explode ()->flatten array elements into different rows
+
+select explode(qual) as q from qualification;
+
+create table studentqual(qual string);
+
+insert into table studentqual
+select explode(qual) as q from qualification;
+
+select qual,count(*) from studentqual group by qual;
+
+create table res(q string,cnt int)
+row format delimited
+fields terminated by ',';
+
+insert into table res
+select  qual,count(*) from studentqual group by qual;
+
+select * from res;
+
+hive has 3 types of functions
+
+1)UDF[user define functions]
+for each row one value will be returned.
+ ex: substring(),length(),size(),sqrt()
+ name
+-----
+abc
+xyzx
+a
+length(name)
+3
+4
+1
+2)UDAF[user define aggregation functions]
+-->for entire column or for entire group these
+function returns single value.
+ex: sum(),count(),max(),min(),avg()
+
+3)UDTF[user define table generated functions]
+-->these function are returning a table.
+table is collection columns&rows.
+ex:explode(),json_tuple(),parse_url_tuple()....
+
+explode([1,2,3])
+1
+2
+3
+
+customer purchaseproducts
+c101,10#20#100
+c102,100#50
+c103,300#500#800#100
+c101,600#400
+
+total bill of each customer.
+
+create table transactions(cid string,price array<int>)
+row format delimited fields terminated by ','
+collection items terminated by '#';
+
+load data local inpath 'file path' into transactions;
+
+select * from transactions;
+
+array(size) is possible but array(sum) is not possible.
+that's why we are going to flatten the data.
+
+select explode(price) as pr from transactions;
+
+but i do this i miss clarity.
+
+select cid,explode(price) as pr from transactions;
+
+but we do like this query will be failed bcoz 
+this is UDTF function along with UDTF function other
+columns won't accepted.
+
+select cid myprice from transactions 
+lateral view explode(price) p as myprice;
+
+note:along with LATERAL VIEW only UDTF functions are accepted.
+
+select * from transactions;
+
+now we keep this data into another table.
+
+create table output(cid string,price int)
+row format delimited fields terminated by ',';
+
+insert into table output
+select cid myprice from transactions 
+lateral view explode(price) p as myprice;
+
+what happens internally
+
+cid	price
+c101	[10,20]
+c102	[30,40,50]
+
+c101 explode(price) [it is a cartesien product]
+c101	10
+c101	20
+c102	explode(price)
+c102	30
+c102	40
+c102	50 
+
+after applying cartesien products on all rows 
+then it perform the union operation on that row.
+thereafter we will get final result.
+
+output
+------
+c101	10
+c101	20
+c102	30
+c102	40
+c102	50
+
+select * from output;
+
+output
+------
+c101	10
+c101	20
+c102	30
+c102	40
+c102	50
+
+select cid,sum(price) from output group by cid;
+
+we can apply only 3 functions on array
+
+1)size :returns the size of the array
+2)array_contains :whis is contains method similar other languages
+3)explode :it will generate complex data as table.
+
+STRUCT : collection of hetrogeneous items.
+------
+ravi,30,rani#25#delhi,hyd
+raghu,35,sailu#23#hyd,del
+
+create table profile(name string,age int wdetails struct<name:string,age:int,city:string>,city string)
+row format delimited
+fields terminated by ','
+collection items terminated by '#';
+
+load data local inpath
+
+select * from profile;
+
+struct fields return as JSON recods but it's not JSON records.
+
+select name,wdetails.name from profile;
+
+create table couples(hname string,wname string,hage int,wage int,hcity string,wcity string)
+row format delimited
+fields terminated by '\t';
+
+insert into table couples
+select name,wdetails.name,age,wdetails.age,city,wdetails.city from profile;
+
+select * from couples;
+
+Note: EXPLODE() IS NOT applicable for STRUCT.
+Map
+----
+
+ravi,30,btech$89#mtech$79#mba$60,hyd
+raghu,35,bsc$80#msc$23,del
+
+create table profile(name String,age int,qual map<string,int>,city string)
+row format delimited fields terminated by ','
+collection items terminated by '#'
+map keys terminated by '$';
+
+load data local inpath
+
+select * from profile;
+
+select name,qual['btech'] from profile;
+ravi	89
+raghu	null
+
+select map_keys(qual) from profile;
+
+select map_values(values) from profile;
+
+select name,map_keys(qual),map_values(qual) from prfile;
+create table info_map(name string, q array<string>, p array<int>);
+
+insert overwrite table info
+select name,map_keys(qual),map_values(qual) from stu;
+
+select * from info;
+
+now we want flatten the arrays
+
+select name,myq from info
+lateral view explode(q) ql as myq;
+
+select name,myp from info
+lateral view explode(p) per as myp;
+
+select name,myq,myp from info
+lateral view explode(q) q as myq, explode(p) p as myp;
+
+select name,myq,myp from info 
+lateral view explode(q) q as myq
+lateral view explode(p) p as myp;
+
+
+
+ alter the Serde properties
+----------------------------
+ ALTER TABLE couple
+ SET serde 'org.apache.hadoop.hive.serde2.lazy.LazySimpleSerDe'
+ WITH serdeproperties('fields.delim'=',');
+
+
+
+
+
+
+
+--------------------------------------PRACTIESING--------------
+
+hive>create table if not exists parito_buck(id int,name string,qul array<string>) row format delimited fields terminated by ','collection items terminated by '#';
+
+hive> load data local inpath '/home/cloudera/complex' into table parito_buck;
+
+hive> select * from parito_buck;
+OK
+111	subbu	["btech","mtech","bsc"]
+222	gopal	["diploma","btech","mpc"]
+333	shashi	["bcom","mcom"]
+444	suri	["mca","bcom","mtech"]
+555	sunil	["ssc","iti","bcom"]
+666	nethra	["mba","bcom","mtech","mca"]
+777	padma	["mba","btech","bcom"]
+888	suji	["ssc","mpc","bsc"]
+999	lakhxmi	["mtech"]
+Time taken: 0.397 seconds, Fetched: 9 row(s)
+
+hive> select id,qul[0] from parito_buck;
+OK
+111	btech
+222	diploma
+333	bcom
+444	mca
+555	ssc
+666	mba
+777	mba
+888	ssc
+999	mtech
+Time taken: 0.229 seconds, Fetched: 9 row(s)
+hive> select name,qul[1] from parito_buck;
+OK
+subbu	mtech
+gopal	btech
+shashi	mcom
+suri	bcom
+sunil	iti
+nethra	bcom
+padma	btech
+suji	mpc
+lakhxmi	NULL
+Time taken: 0.179 seconds, Fetched: 9 row(s)
+hive> select name,qul[2] from parito_buck;
+OK
+subbu	bsc
+gopal	mpc
+shashi	NULL
+suri	mtech
+sunil	bcom
+nethra	mtech
+padma	bcom
+suji	bsc
+lakhxmi	NULL
+Time taken: 0.175 seconds, Fetched: 9 row(s)
+hive> select name,qul[3] from parito_buck;
+OK
+subbu	NULL
+gopal	NULL
+shashi	NULL
+suri	NULL
+sunil	NULL
+nethra	mca
+padma	NULL
+suji	NULL
+lakhxmi	NULL
+Time taken: 0.169 seconds, Fetched: 9 row(s)
+hive> select * from parito_buck where array_contains(qul,'mca');
+OK
+444	suri	["mca","bcom","mtech"]
+666	nethra	["mba","bcom","mtech","mca"]
+Time taken: 0.594 seconds, Fetched: 2 row(s)
+hive> select * from parito_buck where array_contains(qul,'btech');
+OK
+111	subbu	["btech","mtech","bsc"]
+222	gopal	["diploma","btech","mpc"]
+777	padma	["mba","btech","bcom"]
+Time taken: 0.212 seconds, Fetched: 3 row(s)
+hive> select * from parito_buck where array_contains(qul,'bcom');
+OK
+333	shashi	["bcom","mcom"]
+444	suri	["mca","bcom","mtech"]
+555	sunil	["ssc","iti","bcom"]
+666	nethra	["mba","bcom","mtech","mca"]
+777	padma	["mba","btech","bcom"]
+Time taken: 0.207 seconds, Fetched: 5 row(s)
+hive> select * from parito_buck where array_contains(qul,'mcom');
+OK
+333	shashi	["bcom","mcom"]
+Time taken: 0.194 seconds, Fetched: 1 row(s)
+hive> select * from parito_buck where array_contains(qul,'mba');
+OK
+666	nethra	["mba","bcom","mtech","mca"]
+777	padma	["mba","btech","bcom"]
+Time taken: 0.191 seconds, Fetched: 2 row(s)
+hive> select * from parito_buck where array_contains(qul,'iti');
+OK
+555	sunil	["ssc","iti","bcom"]
+Time taken: 0.182 seconds, Fetched: 1 row(s)
+hive> select * from parito_buck where array_contains(qul,'ssc');
+OK
+555	sunil	["ssc","iti","bcom"]
+888	suji	["ssc","mpc","bsc"]
+Time taken: 0.216 seconds, Fetched: 2 row(s)
+hive> select * from parito_buck where array_contains(qul,'bsc');
+OK
+111	subbu	["btech","mtech","bsc"]
+888	suji	["ssc","mpc","bsc"]
+Time taken: 0.164 seconds, Fetched: 2 row(s)
+hive> select * from parito_buck where array_contains(qul,'mpc');
+OK
+222	gopal	["diploma","btech","mpc"]
+888	suji	["ssc","mpc","bsc"]
+Time taken: 0.21 seconds, Fetched: 2 row(s)
+hive> select size(qul) from parito_buck;
+OK
+3
+3
+2
+3
+3
+4
+3
+3
+1
+Time taken: 0.152 seconds, Fetched: 9 row(s)
+hive> select id,size(qul) from parito_buck;
+OK
+111	3
+222	3
+333	2
+444	3
+555	3
+666	4
+777	3
+888	3
+999	1
+Time taken: 0.119 seconds, Fetched: 9 row(s)
+hive> select id,name,size(qul) from parito_buck;
+OK
+111	subbu	3
+222	gopal	3
+333	shashi	2
+444	suri	3
+555	sunil	3
+666	nethra	4
+777	padma	3
+888	suji	3
+999	lakhxmi	1
+Time taken: 0.174 seconds, Fetched: 9 row(s)
+hive> select explode(qul) as q from parito_buck;
+OK
+btech
+mtech
+bsc
+diploma
+btech
+mpc
+bcom
+mcom
+mca
+bcom
+mtech
+ssc
+iti
+bcom
+mba
+bcom
+mtech
+mca
+mba
+btech
+bcom
+ssc
+mpc
+bsc
+mtech
+Time taken: 0.107 seconds, Fetched: 25 row(s)
+
+hive> select id,explode(qul) from parito_buck;
+FAILED: SemanticException [Error 10081]: UDTF's are not supported outside the SELECT clause, nor nested in expressions
+
+hive> select id,myqul from parito_buck lateral view explode(qul) q as myqul;
+OK
+111	btech
+111	mtech
+111	bsc
+222	diploma
+222	btech
+222	mpc
+333	bcom
+333	mcom
+444	mca
+444	bcom
+444	mtech
+555	ssc
+555	iti
+555	bcom
+666	mba
+666	bcom
+666	mtech
+666	mca
+777	mba
+777	btech
+777	bcom
+888	ssc
+888	mpc
+888	bsc
+999	mtech
+Time taken: 0.192 seconds, Fetched: 25 row(s)
+
+hive> create table finall (id int,name string,qul1 string,qul2 string,qul3 string,qul4 string) row format delimited fields terminated by ',';
+OK
+Time taken: 0.309 seconds
+hive> insert into finall select id,name,qul[0],qul[1],qul[2],qul[3] from parito_buck;
+Total MapReduce CPU Time Spent: 8 seconds 610 msec
+OK
+Time taken: 91.782 seconds
+hive> select * from finall;
+OK
+111	subbu	btech	mtech	bsc	NULL
+222	gopal	diploma	btech	mpc	NULL
+333	shashi	bcom	mcom	NULL	NULL
+444	suri	mca	bcom	mtech	NULL
+555	sunil	ssc	iti	bcom	NULL
+666	nethra	mba	bcom	mtech	mca
+777	padma	mba	btech	bcom	NULL
+888	suji	ssc	mpc	bsc	NULL
+999	lakhxmi	mtech	NULL	NULL	NULL
+Time taken: 0.279 seconds, Fetched: 9 row(s)
+
+
+
+-------------------------------PENDING------------------
+
+create table finall(id int,name string,qul1 string,qul2 string,qul3 string,qul4 string)row format delimited fields terminated by ','
+
+
+
+
+--------------------------- JSON DATA PROSESSING ------------------------
+hive>create table json1 (line string);
+
+hive> load data local inpath'/home/cloudera/jsondata_p'into table json1;
+
+hive> select * from json1;
+
+hive>select get_json_object(line,'$.id') from json1;
+
+
+hive> select get_json_object(line,'$.type') from json1;
+OK
+NULL
+NULL
+NULL
+NULL
+NULL
+NULL
+NULL
+NULL
+NULL
+NULL
+Regular
+Chocolate
+Blueberry
+Devil's Food
+NULL
+NULL
+NULL
+NULL
+None
+Glazed
+Sugar
+Powdered Sugar
+Chocolate with Sprinkles
+Chocolate
+Maple
+NULL
+NULL
+NULL
+NULL
+NULL
+NULL
+NULL
+NULL
+NULL
+NULL
+NULL
+Regular
+NULL
+NULL
+NULL
+NULL
+None
+Glazed
+Sugar
+Chocolate
+Maple
+NULL
+NULL
+NULL
+NULL
+NULL
+NULL
+NULL
+NULL
+NULL
+NULL
+NULL
+Regular
+Chocolate
+NULL
+NULL
+NULL
+NULL
+None
+Glazed
+Chocolate
+Maple
+NULL
+NULL
+Time taken: 0.236 seconds, Fetched: 69 row(s)
+hive> select get_json_object(line,'$.name') from json1;
+OK
+NULL
+NULL
+NULL
+NULL
+NULL
+NULL
+NULL
+NULL
+NULL
+NULL
+NULL
+NULL
+NULL
+NULL
+NULL
+NULL
+NULL
+NULL
+NULL
+NULL
+NULL
+NULL
+NULL
+NULL
+NULL
+NULL
+NULL
+NULL
+NULL
+NULL
+NULL
+NULL
+NULL
+NULL
+NULL
+NULL
+NULL
+NULL
+NULL
+NULL
+NULL
+NULL
+NULL
+NULL
+NULL
+NULL
+NULL
+NULL
+NULL
+NULL
+NULL
+NULL
+NULL
+NULL
+NULL
+NULL
+NULL
+NULL
+NULL
+NULL
+NULL
+NULL
+NULL
+NULL
+NULL
+NULL
+NULL
+NULL
+NULL
+Time taken: 0.221 seconds, Fetched: 69 row(s)
+hive> select get_json_object(line,'$.ppu') from json1;
+OK
+NULL
+NULL
+NULL
+NULL
+NULL
+NULL
+NULL
+NULL
+NULL
+NULL
+NULL
+NULL
+NULL
+NULL
+NULL
+NULL
+NULL
+NULL
+NULL
+NULL
+NULL
+NULL
+NULL
+NULL
+NULL
+NULL
+NULL
+NULL
+NULL
+NULL
+NULL
+NULL
+NULL
+NULL
+NULL
+NULL
+NULL
+NULL
+NULL
+NULL
+NULL
+NULL
+NULL
+NULL
+NULL
+NULL
+NULL
+NULL
+NULL
+NULL
+NULL
+NULL
+NULL
+NULL
+NULL
+NULL
+NULL
+NULL
+NULL
+NULL
+NULL
+NULL
+NULL
+NULL
+NULL
+NULL
+NULL
+NULL
+NULL
+Time taken: 0.237 seconds, Fetched: 69 row(s)
+hive> select get_json_object(line,'$.batters') from json1;
+OK
+NULL
+NULL
+NULL
+NULL
+NULL
+NULL
+NULL
+NULL
+NULL
+NULL
+NULL
+NULL
+NULL
+NULL
+NULL
+NULL
+NULL
+NULL
+NULL
+NULL
+NULL
+NULL
+NULL
+NULL
+NULL
+NULL
+NULL
+NULL
+NULL
+NULL
+NULL
+NULL
+NULL
+NULL
+NULL
+NULL
+NULL
+NULL
+NULL
+NULL
+NULL
+NULL
+NULL
+NULL
+NULL
+NULL
+NULL
+NULL
+NULL
+NULL
+NULL
+NULL
+NULL
+NULL
+NULL
+NULL
+NULL
+NULL
+NULL
+NULL
+NULL
+NULL
+NULL
+NULL
+NULL
+NULL
+NULL
+NULL
+NULL
+Time taken: 0.219 seconds, Fetched: 69 row(s)
+hive> select get_json_object(line,'$.topping') from json1;
+OK
+NULL
+NULL
+NULL
+NULL
+NULL
+NULL
+NULL
+NULL
+NULL
+NULL
+NULL
+NULL
+NULL
+NULL
+NULL
+NULL
+NULL
+NULL
+NULL
+NULL
+NULL
+NULL
+NULL
+NULL
+NULL
+NULL
+NULL
+NULL
+NULL
+NULL
+NULL
+NULL
+NULL
+NULL
+NULL
+NULL
+NULL
+NULL
+NULL
+NULL
+NULL
+NULL
+NULL
+NULL
+NULL
+NULL
+NULL
+NULL
+NULL
+NULL
+NULL
+NULL
+NULL
+NULL
+NULL
+NULL
+NULL
+NULL
+NULL
+NULL
+NULL
+NULL
+NULL
+NULL
+NULL
+NULL
+NULL
+NULL
+NULL
+Time taken: 0.298 seconds, Fetched: 69 row(s)
+hive> create table subbu_json (id int,type string) row format delimited fields terminated by ',';
+OK
+Time taken: 0.356 seconds
+hive> insert into subbu_json select get_json_object(line,'$.id'), 
+    > get_json_object(line,'$.type') from json1;
+Total MapReduce CPU Time Spent: 5 seconds 400 msec
+OK
+Time taken: 38.471 seconds
+hive> select*from subbu_json;
+OK
+NULL	NULL
+NULL	NULL
+NULL	NULL
+NULL	NULL
+NULL	NULL
+NULL	NULL
+NULL	NULL
+NULL	NULL
+NULL	NULL
+NULL	NULL
+1001	Regular
+1002	Chocolate
+1003	Blueberry
+1004	Devil's Food
+NULL	NULL
+NULL	NULL
+NULL	NULL
+NULL	NULL
+5001	None
+5002	Glazed
+5005	Sugar
+5007	Powdered Sugar
+5006	Chocolate with Sprinkles
+5003	Chocolate
+5004	Maple
+NULL	NULL
+NULL	NULL
+NULL	NULL
+NULL	NULL
+NULL	NULL
+NULL	NULL
+NULL	NULL
+NULL	NULL
+NULL	NULL
+NULL	NULL
+NULL	NULL
+1001	Regular
+NULL	NULL
+NULL	NULL
+NULL	NULL
+NULL	NULL
+5001	None
+5002	Glazed
+5005	Sugar
+5003	Chocolate
+5004	Maple
+NULL	NULL
+NULL	NULL
+NULL	NULL
+NULL	NULL
+NULL	NULL
+NULL	NULL
+NULL	NULL
+NULL	NULL
+NULL	NULL
+NULL	NULL
+NULL	NULL
+1001	Regular
+1002	Chocolate
+NULL	NULL
+NULL	NULL
+NULL	NULL
+NULL	NULL
+5001	None
+5002	Glazed
+5003	Chocolate
+5004	Maple
+NULL	NULL
+NULL	NULL
+Time taken: 0.298 seconds, Fetched: 69 row(s)
+hive> select id,type from subbu_json group by id;
+FAILED: SemanticException [Error 10025]: Line 1:10 Expression not in GROUP BY key 'type'
+hive> select id,count(type) from subbu_json group by id;
+Query ID = cloudera_20180112162828_bc2f8af1-4df3-4f3d-bdb7-93e8b4d60d4f
+7640 HDFS Write: 82 SUCCESS
+Total MapReduce CPU Time Spent: 9 seconds 980 msec
+OK
+NULL	0
+1001	3
+1002	2
+1003	1
+1004	1
+5001	3
+5002	3
+5003	3
+5004	3
+5005	2
+5006	1
+5007	1
+Time taken: 77.142 seconds, Fetched: 12 row(s)
+
+hive> select id,type from subbu_json group by id,type;
+  HDFS Read: 7257 HDFS Write: 176 SUCCESS
+Total MapReduce CPU Time Spent: 10 seconds 970 msec
+OK
+NULL	NULL
+1001	Regular
+1002	Chocolate
+1003	Blueberry
+1004	Devil's Food
+5001	None
+5002	Glazed
+5003	Chocolate
+5004	Maple
+5005	Sugar
+5006	Chocolate with Sprinkles
+5007	Powdered Sugar
+Time taken: -48543.477 seconds, Fetched: 12 row(s)
+
+
+
+
+
+------------------------------------XML DATA PROCESSING-----------------
+
+
+hive> show databases;
+OK
+default
+dilip
+dvs
+dvs1
+dvs11
+jons1
+josn
+json
+pawansubbu
+Time taken: 0.043 seconds, Fetched: 9 row(s)
+hive> use json;
+OK
+Time taken: 0.052 seconds
+hive> show tables;
+OK
+json1
+mxl_data
+subbu_json
+Time taken: 0.051 seconds, Fetched: 3 row(s)
+hive> select * from xml_data;
+FAILED: SemanticException [Error 10001]: Line 1:14 Table not found 'xml_data'
+hive> select * from mlx_data;
+FAILED: SemanticException [Error 10001]: Line 1:14 Table not found 'mlx_data'
+hive> select * from mxl_data;
+OK
+Time taken: 0.296 seconds
+hive> load data local inpath '/home/cloudera/mlx1' into table mxl_data;
+Loading data to table json.mxl_data
+Table json.mxl_data stats: [numFiles=1, totalSize=3716]
+OK
+Time taken: 2.089 seconds
+hive> select * from mxl_data;
+OK
+<catalog>
+   <book id="bk101"> <author>Gambardella, Matthew</author><title>XML Developer's Guide</title> <genre>Computer</genre><price>44.95</price><publish_date>2000-10-01</publish_date><description>An in-depth look at creating applications with XML.</description></book>
+   <book id="bk102"><author>Ralls, Kim</author><title>Midnight Rain</title><genre>Fantasy</genre> <price>5.95</price><publish_date>2000-12-16</publish_date><description>A former architect battles corporate zombies, an evil sorceress, and her own childhood to become queen of the world.</description></book>
+   <book id="bk103"><author>Corets, Eva</author><title>Maeve Ascendant</title><genre>Fantasy</genre><price>5.95</price><publish_date>2000-11-17</publish_date><description>After the collapse of a nanotechnology society in England, the young survivors lay the foundation for a new society.</description></book>
+   <book id="bk104"><author>Corets, Eva</author><title>Oberon's Legacy</title><genre>Fantasy</genre><price>5.95</price><publish_date>2001-03-10</publish_date><description>In post-apocalypse England, the mysterious agent known only as Oberon helps to create a new life for the inhabitants of London. Sequel to Maeve Ascendant.</description></book>
+   <book id="bk105"><author>Corets, Eva</author><title>The Sundered Grail</title><genre>Fantasy</genre><price>5.95</price><publish_date>2001-09-10</publish_date><description>The two daughters of Maeve, half-sisters, battle one another for control of England. Sequel to Oberon's Legacy.</description></book>
+   <book id="bk106"><author>Randall, Cynthia</author><title>Lover Birds</title><genre>Romance</genre><price>4.95</price><publish_date>2000-09-02</publish_date><description>When Carla meets Paul at an ornithology conference, tempers fly as feathers get ruffled.</description></book>
+   <book id="bk107"><author>Thurman, Paula</author><title>Splish Splash</title><genre>Romance</genre><price>4.95</price><publish_date>2000-11-02</publish_date><description>A deep sea diver finds true love twenty thousand leagues beneath the sea.</description></book>
+   <book id="bk108"><author>Knorr, Stefan</author><title>Creepy Crawlies</title><genre>Horror</genre><price>4.95</price><publish_date>2000-12-06</publish_date><description>An anthology of horror stories about roaches,centipedes, scorpions  and other insects.</description></book>
+   <book id="bk109"><author>Kress, Peter</author><title>Paradox Lost</title><genre>Science Fiction</genre><price>6.95</price><publish_date>2000-11-02</publish_date><description>After an inadvertant trip through a Heisenberg Uncertainty Device, James Salway discovers the problems of being quantum.</description></book>
+   <book id="bk110"><author>O'Brien, Tim</author><title>Microsoft .NET: The Programming Bible</title><genre>Computer</genre><price>36.95</price><publish_date>2000-12-09</publish_date><description>Microsoft's .NET initiative is explored in detail in this deep programmer's reference.</description></book>
+   <book id="bk111"><author>O'Brien, Tim</author><title>MSXML3: A Comprehensive Guide</title><genre>Computer</genre><price>36.95</price><publish_date>2000-12-01</publish_date><description>The Microsoft MSXML3 parser is covered in detail, with attention to XML DOM interfaces, XSLT processing, SAX and more.</description></book>
+   <book id="bk112"><author>Galos, Mike</author><title>Visual Studio 7: A Comprehensive Guide</title><genre>Computer</genre><price>49.95</price><publish_date>2001-04-16</publish_date><description>Microsoft Visual Studio 7 is explored in depth,looking at how Visual Basic, Visual C++, C#, and ASP+ are integrated into a comprehensive development environment.</description></book>
+   </catalog>
+Time taken: 0.263 seconds, Fetched: 14 row(s)
+
+CREATE TABLE xml_data(id int,author string,title string,genre string,price string,publish_date int,description string)ROW FORMAT SERDE 'org.apache.hadoop.hive.serde2.OpenCSVSerde'
+  WITH SERDEPROPERTIES("separatorChar" = "=","quoteChar" = "\"",
+     "escapeChar" = "\\")
+TBLPROPERTIES('skip.head.line.count'='1');
+     
+
+
+Time taken: 0.444 seconds
+hive> create table xml_data(line string);
+OK
+Time taken: 0.215 seconds
+hive> load data local inpath '/home/cloudera/mxl1' into table xml_data;
+FAILED: SemanticException Line 1:23 Invalid path ''/home/cloudera/mxl1'': No files matching path file:/home/cloudera/mxl1
+hive> load data local inpath '/home/cloudera/mlx1' into table xml_data;
+Loading data to table json.xml_data
+Table json.xml_data stats: [numFiles=1, totalSize=3842]
+OK
+Time taken: 1.417 seconds
+hive> select * from xml_data;
+OK
+<catalog><bookid>101</bookid><author>Gambardella, Matthew</author><title>XML Developer's Guide</title> <genre>Computer</genre><price>44.95</price><publish_date>2000-10-01</publish_date><description>An in-depth look at creating applications with XML.</description></catalog>
+<catalog><bookid>102</bookid><author>Ralls, Kim</author><title>Midnight Rain</title><genre>Fantasy</genre> <price>5.95</price><publish_date>2000-12-16</publish_date><description>A former architect battles corporate zombies, an evil sorceress, and her own childhood to become queen of the world.</description></catalog>
+<catalog><bookid>103</bookid><author>Corets, Eva</author><title>Maeve Ascendant</title><genre>Fantasy</genre><price>5.95</price><publish_date>2000-11-17</publish_date><description>After the collapse of a nanotechnology society in England, the young survivors lay the foundation for a new society.</description></catalog>
+<catalog><bookid>104</bookid><author>Corets, Eva</author><title>Oberon's Legacy</title><genre>Fantasy</genre><price>5.95</price><publish_date>2001-03-10</publish_date><description>In post-apocalypse England, the mysterious agent known only as Oberon helps to create a new life for the inhabitants of London. Sequel to Maeve Ascendant.</description></catalog>
+<catalog><bookid>105</book><author>Corets, Eva</author><title>The Sundered Grail</title><genre>Fantasy</genre><price>5.95</price><publish_date>2001-09-10</publish_date><description>The two daughters of Maeve, half-sisters, battle one another for control of England. Sequel to Oberon's Legacy.</description></catalog>
+<catalog><bookid>106</bookid><author>Randall, Cynthia</author><title>Lover Birds</title><genre>Romance</genre><price>4.95</price><publish_date>2000-09-02</publish_date><description>When Carla meets Paul at an ornithology conference, tempers fly as feathers get ruffled.</description></catalog>
+<catalog><bookid>107</bookid><author>Thurman, Paula</author><title>Splish Splash</title><genre>Romance</genre><price>4.95</price><publish_date>2000-11-02</publish_date><description>A deep sea diver finds true love twenty thousand leagues beneath the sea.</description></catalog>
+<catalog><bookid>108</bookid><author>Knorr, Stefan</author><title>Creepy Crawlies</title><genre>Horror</genre><price>4.95</price><publish_date>2000-12-06</publish_date><description>An anthology of horror stories about roaches,centipedes, scorpions  and other insects.</description></catalog>
+<catalog><bookid>109</bookid><author>Kress, Peter</author><title>Paradox Lost</title><genre>Science Fiction</genre><price>6.95</price><publish_date>2000-11-02</publish_date><description>After an inadvertant trip through a Heisenberg Uncertainty Device, James Salway discovers the problems of being quantum.</description></catalog>
+<catalog><bookid>bk110</bookid><author>O'Brien, Tim</author><title>Microsoft .NET: The Programming Bible</title><genre>Computer</genre><price>36.95</price><publish_date>2000-12-09</publish_date><description>Microsoft's .NET initiative is explored in detail in this deep programmer's reference.</description></catalog>
+<catalog><bookid>111</bookid><author>O'Brien, Tim</author><title>MSXML3: A Comprehensive Guide</title><genre>Computer</genre><price>36.95</price><publish_date>2000-12-01</publish_date><description>The Microsoft MSXML3 parser is covered in detail, with attention to XML DOM interfaces, XSLT processing, SAX and more.</description></catalog>
+<catalog><bookid>112</bookid><author>Galos, Mike</author><title>Visual Studio 7: A Comprehensive Guide</title><genre>Computer</genre><price>49.95</price><publish_date>2001-04-16</publish_date><description>Microsoft Visual Studio 7 is explored in depth,looking at how Visual Basic, Visual C++, C#, and ASP+ are integrated into a comprehensive development environment.</description></book></catalog>
+Time taken: 0.285 seconds, Fetched: 12 row(s)
+hive> select xpath_int(line,'catalog/bookid)from xml_data;
+FAILED: ParseException line 1:51 character '<EOF>' not supported here
+
+
+
+
+
+
+
