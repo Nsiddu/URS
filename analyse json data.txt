@@ -1,0 +1,48 @@
+=1. json_tuple()---> to get  continuous sequence of fields.
+example:
+select x.* from emp_json lateral view json_tupl(lines,'empno','ename','job','sal','comm') x;
+
+2.get_json_object() --- to get a particular field
+
+example:
+
+select get_json_object(lines,"$.empno") from emp_json
+
+
+
+JSON DATA analysing using hive:
+
+{"empno":7369,"ename":SMITH,"job":CLERK,"sal":800.00,"comm":null,"deptno":20}
+{"empno":7499,"ename":ALLEN,"job":SALESMAN,"sal"1600.00,"comm":300.00,"deptno":30}
+{"empno":7521,"ename":WARD,"job":SALESMAN,"sal":1250.00,"comm":500.00,"deptno":30}
+
+step 1:
+create table emp_json(lines string);
+
+step 2:
+
+load data local inpath '/root/emp.json' into table emp_json;
+
+step 3:
+
+select get_json_object(lines,"$.empno"), get_json_object(lines,"$.ename"),get_json_object(lines,"$.job"),get_json_object(lines,"$.sal"),get_json_object(lines,"$.comm"),get_json_object(lines,"$.deptno") from emp_json;
+
+step 4:
+
+
+create table emp_json1(empno int,ename string,job string,sal double,comm double,deptno int) row format delimited fields terminated by ',';
+
+step 5.
+
+insert into table emp_json1 select get_json_object(lines,"$.empno"), get_json_object(lines,"$.ename"),get_json_object(lines,"$.job"),get_json_object(lines,"$.sal"),get_json_object(lines,"$.comm"),get_json_object(lines,"$.deptno") from emp_json;
+
+
+
+
+
+
+
+
+
+
+

@@ -1,0 +1,23 @@
+XML data using hive:
+<BOOK><TITLE>Hadoop Defnitive Guide</TITLE><AUTHOR>TomWhite</AUTHOR><COUNTRY>US</COUNTRY>
+<COMPANY>CLOUDERA</COMPANY><PRICE>24.90</PRICE><YEAR>2012</YEAR></BOOK>
+<BOOK><TITLE>ProgrammingPig</TITLE><AUTHOR>AlanGates</AUTHOR><COUNTRY>USA</COUNTRY><COMPANY>Horton Works</COMPANY><PRICE>30.90</PRICE><YEAR>2013</YEAR></BOOK>
+
+
+steps to process xml data
+step 1:
+create table xml_tab(lines string);
+
+step 2:
+load data local inpath '/root/xmldata' into table xml_tab;
+
+step 3:
+select xpath_string(lines,'BOOK/TITLE') from xml_tab;
+select xpath_string(lines,'BOOK/AUTHOR') from xml_tab;
+select xpath_string(lines,'BOOK/YEAR') from xml_tab;
+
+step 4:
+create table xml_tab1(TITLE string,AUTHOR string,COUNTRY string,COMPANY string,PRICE double,YEAR int) row format delimited fields terminated by ',';
+
+step 5:
+insert into table xml_tab1 select xpath_string(lines,'BOOK/TITLE'),xpath_string(lines,'BOOK/AUTHOR'),xpath_string(lines,'BOOK/COUNTRY'),xpath_string(lines,'BOOK/COMPANY'),xpath_string(lines,'BOOK/PRICE'),xpath_string(lines,'BOOK/YEAR')  from xml_tab;
