@@ -1,0 +1,279 @@
+^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+**********************************FILEFORMATS**********************************
+^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+A file format is a way in which information is stored or encoded in a computer file. 
+In Hive it refers to how records are stored inside the file. 
+As we are dealing with structured data, each record has to be its own structure. 
+How records are encoded in a file defines a file format.
+These file formats mainly vary between data encoding, compression rate, usage of space and disk I/O.
+
+Hive does not verify whether the data that you are loading matches the schema for the table or not. 
+However, it verifies if the file format matches the table definition or not.
+
+Let us now discuss the types of file formats in detail.
+
+-----------------------------------------------------------------
+***********************TEXTFILE**********************************
+-----------------------------------------------------------------
+TEXTFILE format is a famous input/output format used in Hadoop.  
+In Hive if we define a table as TEXTFILE it can load data of from CSV (Comma Separated Values), delimited by Tabs, 
+Spaces, and JSON data. This means fields in each record should be separated by comma or space or tab or 
+it may be JSON(JavaScript Object Notation) data.
+
+By default, if we use TEXTFILE format then each line is considered as a record.
+
+We can create a TEXTFILE format in Hive as follows:
+
+#create table table_name (schema of the table) row format delimited fields terminated by ',' | stored as TEXTFILE.
+
+At the end, we need to specify the type of file format.
+If we do not specify anything it will consider the file format as TEXTFILE format.
+
+The TEXTFILE input and TEXTFILE output format are present in the Hadoop package as shown below:
+
+org.apache.hadoop.mapred.TextInputFormat
+org.apache.hadoop.mapred.TextOutputFormat
+Let us see one example in Hive about how to create TEXTFILE table format, how to load data into TEXTFILE format and perform one basic select operation in Hive.
+
+Creating TEXTFILE
+
+create table olympic(athelete STRING,age INT,country STRING,year STRING,closing STRING,sport STRING,gold INT,silver INT,bronze INT,total INT) row format delimited fields terminated by '\t' stored as textfile;
+Here we are creating a table with name “olympic" and the schema of the table is as specified above. 
+The data inside the above input file is delimited by tab space. 
+As explained earlier the file format is specified as TEXTFILE at the end. 
+The schema of the table created above can be checked using describe olympic;
+
+# We can load data into the created table as follows:
+
+load data local inpath 'path of your file' into table olympic;
+
+We have successfully loaded our input file data into our table which is of TEXTFILE format.
+
+Now we will perform one basic SELECT operation on the data as shown below:
+
+ select athelete from olympic;
+The data retrieved is as shown in Figure below:
+
+
+
+-------------------------------------------------------------------------------------
+*********************************SEQUENCEFILE**************************************
+-----------------------------------------------------------------------------------
+We know that Hadoop's performance is drawn out when we work with a small number of files with big size rather than a large
+number of files with small size. If the size of a file is smaller than the typical block size in Hadoop, 
+we consider it as a small file. Due to this, a number of metadata increases which will become an overhead to the NameNode.
+To solve this problem sequence files are introduced in Hadoop. 
+Sequence files act as a container to store the small files.
+
+Sequence files are flat files consisting of binary key-value pairs. When Hive converts queries to MapReduce jobs,it 
+decides on the appropriate key-value pairs to be used for a given record. Sequence files are in the binary format which 
+can be split and the main use of these files is to club two or more smaller files and make them as a one sequence file.
+
+In Hive we can create a sequence file by specifying STORED AS SEQUENCEFILE in the end of a CREATE TABLE statement.
+
+There are three types of sequence files:
+
+• Uncompressed key/value records.
+
+• Record compressed key/value records - only 'values' are compressed here
+
+• Block compressed key/value records - both keys and values are collected in 'blocks' separately and compressed. 
+  The size of the 'block' is configurable.
+
+Hive has its own SEQUENCEFILE reader and SEQUENCEFILE writer libraries for reading and writing through sequence files.
+
+In Hive we can create a sequence file format as follows:
+
+create table table_name (schema of the table) row format delimited fileds terminated by ',' | stored as SEQUENCEFILE;
+Hive uses the SEQUENCEFILE input and output formats from the following packages:
+
+org.apache.hadoop.mapred.SequenceFileInputFormat
+org.apache.hadoop.hive.ql.io.HiveSequenceFileOutputFormat
+Creating SEQUENCEFILE
+
+create table olympic_sequencefile(athelete STRING,age INT,country STRING,year STRING,closing STRING,sport STRING,gold INT,silver INT,bronze INT,total INT) row format delimited fields terminated by '\t' stored as sequencefile;
+Here we are creating a table with name olympic_sequencefile and the schema of the table is as specified above and the data inside my input file is delimited by tab space. At the end the file format is specified as SEQUENCEFILE format. You can check the schema of your created table using:
+
+describe olympic_sequencefile;
+******
+Now to load data into this table is somewhat different from loading into the table created using TEXTFILE format. 
+You need to insert the data from another table because this SEQUENCEFILE format is the binary format.
+It compresses the data and then stores it into the table. 
+If you want to load directly as in TEXTFILE format that is not possible because we cannot insert the compressed files into tables.
+
+So to load the data into SEQUENCEFILE we need to use the following approach:
+
+INSERT OVERWRITE TABLE olympic_sequencefile
+SELECT * FROM olympic;
+We have already created table by name olympic which is of TEXTFILE format and then we are writing the contents of the olympic table into olympic_sequencefile table.
+
+Thus we have successfully loaded data into the SEQUENCEFILE.
+
+Now let us perform the same basic SELECT operation which we have performed on the TEXTFILE format, on SEQUENCEFILE format also.
+
+ select athelete from olympic_sequencefile;
+
+
+-------------------------------------------------------------
+*************************RCFILE**************************** 
+-------------------------------------------------------------
+
+# RCFILE stands of Record Columnar File which is another type of binary file format which offers 
+high compression rate on the top of the rows.
+
+# RCFILE is used when we want to perform operations on multiple rows at a time.
+
+# RCFILEs are flat files consisting of binary key/value pairs, which shares many similarities with SEQUENCEFILE. 
+ RCFILE stores columns of a table in form of record in a columnar manner. 
+ It first partitions rows horizontally into row splits and then it vertically partitions each row split in a columnar way.
+ RCFILE first stores the metadata of a row split,as the key part of a record,and all the data of a row split as the value part. 
+ This means that RCFILE encourages column oriented storage rather than row oriented storage.
+
+This column oriented storage is very useful while performing analytics. It is easy to perform analytics when we “hive’ a column oriented storage type.
+
+Facebook uses RCFILE as its default file format for storing of data in their data warehouse as they perform different types of analytics using Hive.
+
+In Hive we can create a RCFILE format as follows:
+
+ create table table_name (schema of the table) row format delimited fields terminated by ',' | stored as RCFILE
+Hive has its own RCFILE Input format and RCFILE output format in its default package:
+
+org.apache.hadoop.hive.ql.io.RCFileInputFormat
+org.apache.hadoop.hive.ql.io.RCFileOutputFormat
+
+**********Creating RCFILE***********(centos support)
+
+create table olympic_rcfile(athelete STRING,age INT,country STRING,year STRING,closing STRING,sport STRING,gold INT,silver INT,bronze INT,total INT) row format delimited fields terminated by '\t' stored as rcfile
+Here we are creating a table with name olympic_rcfile and the schema of the table is as specified above. 
+
+# The data inside the input file is delimited by tab space.
+
+# At the end the file format is specified as RCFILE format.
+
+# You can check the schema of your created table using:
+
+ describe olympic_rcfile;
+
+We cannot load data into RCFILE directly. First we need to load data into another table 
+and then we need to overwrite it into our newly created RCFILE as shown below:
+
+INSERT OVERWRITE TABLE olympic_rcfile
+SELECT * FROM olympic;
+
+We have already created a table by name olympic which is of TEXTFILE format and then we are writing the contents of the olympic table into olympic_rcfile table.
+
+As shown above we have successfully loaded data into the RCFILE.
+
+Now let us perform the same basic SELECT operation which we have performed on the TEXTFILE format on RCFILE format as well as shown in Figure below:
+
+select athelete from olympic_rcfile;
+
+
+------------------------------------------------------
+*********************ORCFILE********************** (centos not support)
+-----------------------------------------------------
+
+ORC stands for Optimized Row Columnar which means it can store data in an optimized way than the other file formats. 
+ORC reduces the size of the original data up to 75%(eg: 100GB file will become 25GB). 
+As a result the speed of data processing also increases. 
+ORC shows better performance than Text, Sequence and RC file formats.
+
+An ORC file contains rows data in groups called as Stripes along with a file footer. ORC format improves the performance when Hive is processing the data.
+
+In Hive we can create a ORCFILE format as follows:
+
+ create table table_name (schema of the table) row format delimited fields terminated by ',' | stored as ORC
+Hive has its own ORCFILE Input format and ORCFILE output format in its default package:
+
+ org.apache.hadoop.hive.ql.io.orc
+Creating ORCFILE
+
+create table olympic_orcfile(athelete STRING,age INT,country STRING,year STRING,closing STRING,sport STRING,gold INT,silver INT,bronze INT,total INT) row format delimited fields terminated by '\t' stored as orcfile;
+Here we are creating a table with name olympic_orcfile and the schema of the table is as specified above. The data inside the input file is delimited by tab space.
+
+At the end the file format is specified as ORCFILE format.
+
+You can check the schema of your created table using:
+
+ describe olympic_orcfile;
+We cannot load data into ORCFILE directly. First we need to load data into another table and then we need to overwrite it into our newly created ORCFILE.
+
+INSERT OVERWRITE TABLE olympic_orcfile
+SELECT * FROM olympic;
+Here is a table created by name olympic which is of TEXTFILE format and then we need to write the contents of the olympic table into olympic_orcfile table.
+
+Thus we have successfully loaded data into the ORCFILE.
+
+Now let us perform the same basic SELECT operation which we have performed on the TEXTFILE format, on ORCFILE format as well.
+
+select athelete from olympic_orcfile;
+Thus you can use the above four file formats depending on your data.
+
+For example,
+------------------------------------------------------------------------------------------
+*********************************IMPORTANT POINTS*****************************************
+------------------------------------------------------------------------------------------
+a) If your data is delimited by some parameters( comma,tab,space,json) then you can use TEXTFILE format.
+
+b) If your data is in small files whose size is less than the block size(64 MB IN VERSION 1 AND 128 MB IN HADOOP 2.X)
+   then you can use SEQUENCEFILE format.
+
+c) If you want to perform analytics on your data and you want to store your data efficiently for that then you can 
+   use RCFILE format.
+
+d) If you want to store your data in an optimized way which lessens your storage and increases your performance then you
+   can use ORCFILE format.
+
+
+---------------------------------------------------------------------
+*******************************Avro**********************************
+---------------------------------------------------------------------
+
+Widely used as a serialization platform
+Row-based, offers a compact and fast binary format
+Schema is encoded on the file so the data can be untagged
+Files support block compression and are splittable
+Supports schema evolution
+
+----------------------------------------------------------------------
+******************************Parquet*********************************
+----------------------------------------------------------------------
+Column-oriented binary file format
+Uses the record shredding and assembly algorithm described in the Dremel paper
+Each data file contains the values for a set of rows
+Efficient in terms of disk I/O when specific columns need to be queried
+
+NOTE :
+ IF YOUR USE CASE TYPICALLY SCANS OR RETRIVES ALL OF THE FEILDS IN A ROW IN EACH QUERY,AVRO IS USUALLY THE BEST CHOICE.
+IF YOUR DATASET HAS MANY COLUMNS AND YOUR USE CASE TYPICALLY INVOLVES WORKING WITH A SUBSET OF THOSE COLUMNS RATHER
+THAN ENTIRE RECORDS,PARQUET IS optimized for that kind of work.
+
+
+hive> select * from salesdata01 where from_unixtime(unix_timestamp(Order_date, 'dd-MM-yyyy'),'yyyy-MM-dd') >= from_unixtime(unix_timestamp('2010-09-01', 'yyyy-MM-dd'),'yyyy-MM-dd') and from_unixtime(unix_timestamp(Order_date, 'dd-MM-yyyy'),'yyyy-MM-dd') <= from_unixtime(unix_timestamp('2011-09-01', 'yyyy-MM-dd'),'yyyy-MM-dd') limit 10;
+OK
+1   3   13-10-2010  Low 6.0 261.54  0.04    Regular Air -213.25 38.94
+80  483 10-07-2011  High    30.0    4965.7593   0.08    Regular Air 1198.97 195.99
+97  613 17-06-2011  High    12.0    93.54   0.03    Regular Air -54.04  7.3
+98  613 17-06-2011  High    22.0    905.08  0.09    Regular Air 127.7   42.76
+103 643 24-03-2011  High    21.0    2781.82 0.07    Express Air -695.26 138.14
+127 807 23-11-2010  Medium  45.0    196.85  0.01    Regular Air -166.85 4.28
+128 807 23-11-2010  Medium  32.0    124.56  0.04    Regular Air -14.33  3.95
+160 995 30-05-2011  Medium  46.0    1815.49 0.03    Regular Air 782.91  39.89
+229 1539    09-03-2011  Low 33.0    511.83  0.1 Regular Air -172.88 15.99
+230 1539    09-03-2011  Low 38.0    184.99  0.05    Regular Air -144.55 4.89
+Time taken: 0.166 seconds, Fetched: 10 row(s)
+hive> select * from salesdata01 where from_unixtime(unix_timestamp(Order_date, 'dd-MM-yyyy'),'yyyy-MM-dd') >= from_unixtime(unix_timestamp('2010-09-01', 'yyyy-MM-dd'),'yyyy-MM-dd') and from_unixtime(unix_timestamp(Order_date, 'dd-MM-yyyy'),'yyyy-MM-dd') <= from_unixtime(unix_timestamp('2010-12-01', 'yyyy-MM-dd'),'yyyy-MM-dd') limit 10;
+OK
+1   3   13-10-2010  Low 6.0 261.54  0.04    Regular Air -213.25 38.94
+127 807 23-11-2010  Medium  45.0    196.85  0.01    Regular Air -166.85 4.28
+128 807 23-11-2010  Medium  32.0    124.56  0.04    Regular Air -14.33  3.95
+256 1792    08-11-2010  Low 28.0    370.48  0.04    Regular Air -5.45   13.48
+381 2631    23-09-2010  Low 27.0    1078.49 0.08    Regular Air 252.66  40.96
+656 4612    19-09-2010  Medium  9.0 89.55   0.06    Regular Air -375.64 4.48
+769 5506    07-11-2010  Critical    22.0    129.62  0.05    Regular Air 4.41    5.88
+1457    10499   16-11-2010  Not Specified   29.0    6250.936    0.01    Delivery Truck  31.21   262.11
+1654    11911   10-11-2010  Critical    25.0    397.84  0.0 Regular Air -14.75  15.22
+2323    16741   30-09-2010  Medium  6.0 157.97  0.01    Regular Air -42.38  22.84
+Time taken: 0.17 seconds, Fetched: 10 row(s)
+
